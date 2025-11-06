@@ -122,7 +122,12 @@ def get_neighbors(number: int, count: int) -> List[int]:
 @app.get("/")
 @app.get("")
 async def root():
-    return {"message": "Mr Markovski's Roulette API", "status": "running"}
+    """Health check endpoint"""
+    return {
+        "message": "Mr Markovski's Roulette API",
+        "status": "running",
+        "version": "1.0.0"
+    }
 
 
 @app.post("/spin", response_model=SpinResult)
@@ -180,13 +185,5 @@ async def get_number_neighbors(number: int, count: int = 1):
 # Export handler for Vercel serverless function
 # Mangum wraps FastAPI app for AWS Lambda/Vercel compatibility
 # Note: Vercel routes /api/* to api/*.py, so routes here should NOT include /api prefix
-try:
-    handler = Mangum(app, lifespan="off")
-except Exception as e:
-    # Fallback handler if Mangum fails
-    def handler(event, context):
-        return {
-            "statusCode": 500,
-            "body": json.dumps({"error": f"Handler initialization failed: {str(e)}"})
-        }
+handler = Mangum(app, lifespan="off")
 

@@ -50,10 +50,11 @@ function calculatePayout(bet, winningNumber) {
 }
 
 function generateWinningNumber() {
-  // Use crypto.getRandomValues for secure random number
-  const array = new Uint32Array(1);
-  crypto.getRandomValues(array);
-  return array[0] % 37; // 0-36
+  // Use Node.js crypto for secure random number
+  const crypto = require('crypto');
+  const randomBytes = crypto.randomBytes(4);
+  const randomInt = randomBytes.readUInt32BE(0);
+  return randomInt % 37; // 0-36
 }
 
 module.exports = async function handler(req, res) {

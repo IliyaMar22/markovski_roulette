@@ -6,6 +6,7 @@ from typing import Dict, List, Optional
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from mangum import Mangum
 
 app = FastAPI(title="Mr Markovski's Roulette API")
 
@@ -175,6 +176,7 @@ async def get_number_neighbors(number: int, count: int = 1):
     return {"number": number, "neighbors": neighbors, "count": count}
 
 
-# Export for Vercel
-handler = app
+# Export handler for Vercel serverless function
+# Mangum wraps FastAPI app for AWS Lambda/Vercel compatibility
+handler = Mangum(app, lifespan="off")
 

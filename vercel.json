@@ -11,17 +11,22 @@
       }
     },
     {
-      "src": "api/index.py",
-      "use": "@vercel/python",
-      "config": {
-        "maxLambdaSize": "50mb"
-      }
+      "src": "api/spin.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "api/neighbors.js",
+      "use": "@vercel/node"
     }
   ],
   "routes": [
     {
-      "src": "/api/(.*)",
-      "dest": "/api/index.py"
+      "src": "/api/spin",
+      "dest": "/api/spin.js"
+    },
+    {
+      "src": "/api/numbers/(.*)/neighbors",
+      "dest": "/api/neighbors.js"
     },
     {
       "handle": "filesystem"

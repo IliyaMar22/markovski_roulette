@@ -6,6 +6,7 @@ import secrets
 from typing import Dict, List, Optional
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from mangum import Mangum
 
@@ -133,41 +134,46 @@ async def root():
 @app.post("/spin", response_model=SpinResult)
 async def spin(request: SpinRequest):
     """Process a spin with bets"""
-    # Validate bets
-    total_bet = sum(bet.amount for bet in request.bets)
-    if total_bet > request.balance:
-        raise HTTPException(status_code=400, detail="Insufficient balance")
-    
-    # Generate winning number using secure RNG
-    rng = secrets.SystemRandom()
-    winning_number = rng.choice(EUROPEAN_NUMBERS)
-    winning_color = get_color(winning_number)
-    
-    # Calculate payouts
-    total_payout = 0.0
-    winning_bets = []
-    
-    for bet in request.bets:
-        payout = calculate_payout(bet, winning_number)
-        if payout > 0:
-            total_payout += payout
-            winning_bets.append({
-                "type": bet.type,
-                "numbers": bet.numbers,
-                "amount": bet.amount,
-                "payout": payout
-            })
-    
-    # Update balance
-    new_balance = request.balance - total_bet + total_payout
-    
-    return SpinResult(
-        winning_number=winning_number,
-        winning_color=winning_color,
-        payout=total_payout,
-        new_balance=new_balance,
-        winning_bets=winning_bets
-    )
+    try:
+        # Validate bets
+        total_bet = sum(bet.amount for bet in request.bets)
+        if total_bet > request.balance:
+            raise HTTPException(status_code=400, detail="Insufficient balance")
+        
+        # Generate winning number using secure RNG
+        rng = secrets.SystemRandom()
+        winning_number = rng.choice(EUROPEAN_NUMBERS)
+        winning_color = get_color(winning_number)
+        
+        # Calculate payouts
+        total_payout = 0.0
+        winning_bets = []
+        
+        for bet in request.bets:
+            payout = calculate_payout(bet, winning_number)
+            if payout > 0:
+                total_payout += payout
+                winning_bets.append({
+                    "type": bet.type,
+                    "numbers": bet.numbers,
+                    "amount": bet.amount,
+                    "payout": payout
+                })
+        
+        # Update balance
+        new_balance = request.balance - total_bet + total_payout
+        
+        return SpinResult(
+            winning_number=winning_number,
+            winning_color=winning_color,
+            payout=total_payout,
+            new_balance=new_balance,
+            winning_bets=winning_bets
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 
 @app.get("/numbers/{number}/neighbors")
@@ -181,6 +187,23 @@ async def get_number_neighbors(number: int, count: int = 1):
     neighbors = get_neighbors(number, count)
     return {"number": number, "neighbors": neighbors, "count": count}
 
+
+# Add global exception handler
+@app.exception_handler(Exception)
+async def global_exception_handler(request, exc):
+    """Global exception handler"""
+    import traceback
+    error_detail = str(exc)
+    traceback_str = traceback.format_exc()
+    print(f"Error: {error_detail}")
+    print(f"Traceback: {traceback_str}")
+    return JSONResponse(
+        status_code=500,
+        content={
+            "error": "Internal server error",
+            "detail": error_detail
+        }
+    )
 
 # Export handler for Vercel serverless function
 # Mangum wraps FastAPI app for AWS Lambda/Vercel compatibility

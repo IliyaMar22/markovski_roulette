@@ -1,6 +1,7 @@
 """
 Mr Markovski's Roulette - FastAPI Backend for Vercel Serverless
 """
+import json
 import secrets
 from typing import Dict, List, Optional
 from fastapi import FastAPI, HTTPException
@@ -118,13 +119,13 @@ def get_neighbors(number: int, count: int) -> List[int]:
         return []
 
 
-@app.get("/api")
-@app.get("/api/")
+@app.get("/")
+@app.get("")
 async def root():
     return {"message": "Mr Markovski's Roulette API", "status": "running"}
 
 
-@app.post("/api/spin", response_model=SpinResult)
+@app.post("/spin", response_model=SpinResult)
 async def spin(request: SpinRequest):
     """Process a spin with bets"""
     # Validate bets
@@ -164,7 +165,7 @@ async def spin(request: SpinRequest):
     )
 
 
-@app.get("/api/numbers/{number}/neighbors")
+@app.get("/numbers/{number}/neighbors")
 async def get_number_neighbors(number: int, count: int = 1):
     """Get neighbors for a number"""
     if number < 0 or number > 36:
@@ -178,5 +179,14 @@ async def get_number_neighbors(number: int, count: int = 1):
 
 # Export handler for Vercel serverless function
 # Mangum wraps FastAPI app for AWS Lambda/Vercel compatibility
-handler = Mangum(app, lifespan="off")
+# Note: Vercel routes /api/* to api/*.py, so routes here should NOT include /api prefix
+try:
+    handler = Mangum(app, lifespan="off")
+except Exception as e:
+    # Fallback handler if Mangum fails
+    def handler(event, context):
+        return {
+            "statusCode": 500,
+            "body": json.dumps({"error": f"Handler initialization failed: {str(e)}"})
+        }
 

@@ -208,5 +208,39 @@ async def global_exception_handler(request, exc):
 # Export handler for Vercel serverless function
 # Mangum wraps FastAPI app for AWS Lambda/Vercel compatibility
 # Note: Vercel routes /api/* to api/*.py, so routes here should NOT include /api prefix
-handler = Mangum(app, lifespan="off")
+try:
+    mangum_handler = Mangum(app, lifespan="off")
+    
+    def handler(event, context):
+        """Wrapper handler for Vercel"""
+        try:
+            return mangum_handler(event, context)
+        except Exception as e:
+            import traceback
+            error_msg = str(e)
+            traceback_str = traceback.format_exc()
+            print(f"Handler error: {error_msg}")
+            print(f"Traceback: {traceback_str}")
+            return {
+                "statusCode": 500,
+                "headers": {"Content-Type": "application/json"},
+                "body": json.dumps({
+                    "error": "Internal server error",
+                    "detail": error_msg
+                })
+            }
+except Exception as e:
+    import traceback
+    print(f"Mangum initialization error: {str(e)}")
+    print(traceback.format_exc())
+    
+    def handler(event, context):
+        return {
+            "statusCode": 500,
+            "headers": {"Content-Type": "application/json"},
+            "body": json.dumps({
+                "error": "Handler initialization failed",
+                "detail": str(e)
+            })
+        }
 

@@ -244,31 +244,82 @@ class handler(BaseHTTPRequestHandler):
                 self._send_error_response(500, "FastAPI app not initialized")
                 return
             
-            # Convert BaseHTTPRequestHandler request to ASGI event
+            # Convert BaseHTTPRequestHandler request to AWS Lambda event format
             path = self.path.split('?')[0]  # Remove query string
             method = self.command
             
             # Read request body
             content_length = int(self.headers.get('Content-Length', 0))
             body = self.rfile.read(content_length) if content_length > 0 else b''
+            body_str = body.decode('utf-8') if body else ''
             
-            # Build ASGI event
+            # Parse query string
+            query_params = self._parse_query_string()
+            
+            # Build AWS Lambda API Gateway v1 event format (Mangum supports this better)
+            headers_dict = {k.lower(): v for k, v in self.headers.items()}
+            
             event = {
                 "httpMethod": method,
                 "path": path,
-                "headers": {k.lower(): v for k, v in self.headers.items()},
-                "body": body.decode('utf-8') if body else '',
+                "headers": headers_dict,
+                "multiValueHeaders": {k: [v] for k, v in headers_dict.items()},
+                "body": body_str,
                 "isBase64Encoded": False,
-                "queryStringParameters": self._parse_query_string(),
+                "queryStringParameters": query_params,
+                "multiValueQueryStringParameters": {k: [v] for k, v in (query_params or {}).items()} if query_params else None,
+                "pathParameters": None,
+                "stageVariables": None,
                 "requestContext": {
-                    "path": path,
+                    "resourceId": "test-resource-id",
+                    "resourcePath": path,
                     "httpMethod": method,
-                }
+                    "extendedRequestId": "test-request-id",
+                    "requestTime": "09/Apr/2015:12:34:56 +0000",
+                    "path": path,
+                    "accountId": "123456789012",
+                    "protocol": "HTTP/1.1",
+                    "stage": "prod",
+                    "domainPrefix": "api",
+                    "requestTimeEpoch": 1428582896000,
+                    "requestId": "test-request-id",
+                    "identity": {
+                        "cognitoIdentityPoolId": None,
+                        "accountId": None,
+                        "cognitoIdentityId": None,
+                        "caller": None,
+                        "sourceIp": "127.0.0.1",
+                        "principalOrgId": None,
+                        "accessKey": None,
+                        "cognitoAuthenticationType": None,
+                        "cognitoAuthenticationProvider": None,
+                        "userArn": None,
+                        "userAgent": headers_dict.get("user-agent", "unknown"),
+                        "user": None,
+                    },
+                    "domainName": "api.example.com",
+                    "apiId": "test-api-id",
+                },
             }
             
-            # Call Mangum handler
-            context = {}  # Lambda context (not used by Mangum)
-            response = mangum_handler(event, context)
+            # Call Mangum handler - it handles async internally
+            context = {
+                "requestId": "test-request-id",
+                "functionName": "roulette-api",
+                "functionVersion": "$LATEST",
+                "memoryLimitInMB": "128",
+            }
+            
+            # Mangum handler returns a coroutine, need to await it
+            if asyncio.iscoroutinefunction(mangum_handler):
+                try:
+                    loop = asyncio.get_event_loop()
+                except RuntimeError:
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                response = loop.run_until_complete(mangum_handler(event, context))
+            else:
+                response = mangum_handler(event, context)
             
             # Send response
             status_code = response.get('statusCode', 500)

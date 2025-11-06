@@ -71,14 +71,19 @@ export const GameControls: React.FC = () => {
         payout: bet.payout,
       }));
 
-      console.log('Sending bets to API:', apiBets);
-      console.log('API URL:', API_URL);
-      console.log('About to make axios call...');
-      
-      const response = await axios.post(`${API_URL}/spin`, {
+      const requestPayload = {
         bets: apiBets,
         balance: balance,
-      }, {
+      };
+      
+      console.log('=== REQUEST DETAILS ===');
+      console.log('API URL:', `${API_URL}/spin`);
+      console.log('Request Payload:', JSON.stringify(requestPayload, null, 2));
+      console.log('Bets array:', apiBets);
+      console.log('Balance:', balance);
+      console.log('About to make axios call...');
+      
+      const response = await axios.post(`${API_URL}/spin`, requestPayload, {
         timeout: 10000, // 10 second timeout
         headers: {
           'Content-Type': 'application/json',
@@ -129,19 +134,18 @@ export const GameControls: React.FC = () => {
       console.error('Error string:', String(error));
       
       if (axios.isAxiosError(error)) {
-        console.error('Axios error details:', {
-          message: error.message,
-          code: error.code,
-          response: error.response?.data,
-          status: error.response?.status,
-          config: {
-            url: error.config?.url,
-            method: error.config?.method,
-          }
-        });
-        alert(`Error: ${error.response?.data?.detail || error.message || 'Failed to connect to backend'}`);
+        const errorData = error.response?.data;
+        const errorDetail = errorData?.detail || errorData?.error || error.message;
+        
+        console.error('=== FULL ERROR RESPONSE ===');
+        console.error('Status:', error.response?.status);
+        console.error('Response Data:', JSON.stringify(errorData, null, 2));
+        console.error('Error Detail:', errorDetail);
+        console.error('Full Error Object:', error);
+        
+        alert(`Error: ${errorDetail || 'Failed to connect to backend'}\n\nCheck console for full details.`);
       } else {
-        console.error('Non-axios error');
+        console.error('Non-axios error:', error);
         alert('Error processing spin. Please check backend connection.');
       }
       setIsSpinning(false);

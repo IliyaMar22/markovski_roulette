@@ -9,24 +9,12 @@
         "installCommand": "cd frontend && npm install",
         "buildCommand": "cd frontend && npm run build"
       }
-    },
-    {
-      "src": "api/spin.js",
-      "use": "@vercel/node"
-    },
-    {
-      "src": "api/neighbors.js",
-      "use": "@vercel/node"
     }
   ],
   "routes": [
     {
-      "src": "/api/spin",
-      "dest": "/api/spin.js"
-    },
-    {
-      "src": "/api/numbers/(.*)/neighbors",
-      "dest": "/api/neighbors.js"
+      "src": "/api/(.*)",
+      "dest": "/api/$1"
     },
     {
       "handle": "filesystem"
